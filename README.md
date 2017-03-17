@@ -184,3 +184,29 @@ var masterDb = new MasterDbContext();
 //延迟查询
 var articles = masterDb.Query<Article>("select * from T_Article where Title=@p0", "hello");
 ```
+
+### 动态查询条件
+
+```csharp
+var title = "此变量来自用户输入";
+
+var sb = new SqlBuilder();
+sb.Append("select * from T_Article");
+if(!string.IsNullOrEmpty(title))
+	sb.Append("where Title=@p0", title);
+
+var sql = sb.Build();
+var articles = masterDb.Fetch<Article>(sql.Statement, sql.Parameters);
+```
+
+### 事务支持
+
+```csharp
+using (var trans = this.GetTransaction())
+{
+    //这里修改数据库
+
+    //提交事务
+    trans.Complete();
+}
+```
