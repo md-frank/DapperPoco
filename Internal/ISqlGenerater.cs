@@ -11,6 +11,6 @@ namespace Mondol.DapperPoco.Internal
         string Delete(Type type, string tableName = null, string primaryKeyName = null);
         string Update(Type type, string tableName = null, string[] columns = null, string primaryKeyName = null);
         string GetAll(Type type, string tableName = null);
-        string GetByPrimaryKey(Type type, string tableName = null, string primaryKeyName = null);
+        string GetByColumn(Type type, string columnName, string tableName = null);
     }
 }

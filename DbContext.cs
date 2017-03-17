@@ -8,6 +8,7 @@ using Mondol.DapperPoco.Utils;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using Mondol.DapperPoco.Metadata;
 
 namespace Mondol.DapperPoco
 {
@@ -69,7 +70,7 @@ namespace Mondol.DapperPoco
             }
         }
 
-        public int Update<T>(T entity, string tableName = null, string[] columns = null, string primaryKeyName = null) where T : class
+        public int Update<T>(T entity, string[] columns = null, string tableName = null, string primaryKeyName = null) where T : class
         {
             var type = typeof(T);
             if (type.IsArray)
@@ -79,14 +80,14 @@ namespace Mondol.DapperPoco
             return DbConnection.Execute(sql, entity, _transaction, CommandTimeout);
         }
 
-        public int Update<T>(T entity, params Expression<Func<T, object>>[] columns) where T : class
+        public int Update<T>(T entity, string tableName = null, string primaryKeyName = null, params Expression<Func<T, object>>[] columns) where T : class
         {
             var eTabInfo = DbContextServices.EntityMapper.GetEntityTableInfo(typeof(T));
 
             //TODO: 此处对EF Core有依赖，日后去掉依赖
             var cPis = columns.Select(Microsoft.EntityFrameworkCore.Internal.ExpressionExtensions.GetPropertyAccess);
             var colNames = cPis.Select(p => eTabInfo.Columns.First(p1 => p1.Property.Name == p.Name).ColumnName).ToArray();
-            return Update(entity, null, colNames);
+            return Update(entity, colNames, tableName, primaryKeyName);
         }
 
         public int Delete<T>(T entity, string tableName = null, string primaryKeyName = null) where T : class
@@ -99,18 +100,12 @@ namespace Mondol.DapperPoco
             return DbConnection.Execute(sql, entity, _transaction, CommandTimeout);
         }
 
-        public int Save<T>(T entity, string tableName = null, string[] columns = null, string primaryKeyName = null) where T : class
+        public int Save<T>(T entity, string[] columns = null, string tableName = null, string primaryKeyName = null) where T : class
         {
-            var updCount = Update(entity, tableName, columns, primaryKeyName);
+            var updCount = Update(entity, columns, tableName, primaryKeyName);
             if (updCount < 1)
                 return Insert(entity, tableName);
             return updCount;
-        }
-
-        public T FetchByPrimaryKey<T>(T entity, string tableName = null, string primaryKeyName = null) where T : class
-        {
-            var sql = DbContextServices.SqlGenerater.GetByPrimaryKey(typeof(T), tableName, primaryKeyName);
-            return FirstOrDefault<T>(sql, entity);
         }
 
         public List<T> FetchAll<T>(string tableName = null) where T : class
@@ -318,6 +313,16 @@ namespace Mondol.DapperPoco
                 }
                 return _dbConn;
             }
+        }
+
+        private EntityColumnInfo GetPrimaryKeyColumnInfo(Type entityType)
+        {
+            var eTabInfo = DbContextServices.EntityMapper.GetEntityTableInfo(entityType);
+            var eci = eTabInfo.Columns.FirstOrDefault(p => p.IsPrimaryKey);
+            if (eci == null)
+                throw new InvalidOperationException($"实体 {entityType.FullName} 不包含主键");
+
+            return eci;
         }
 
         #endregion

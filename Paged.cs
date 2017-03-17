@@ -9,27 +9,27 @@ namespace Mondol.DapperPoco
     public class Paged<T> where T : new()
     {
         /// <summary>
-        ///     The current page number contained in this page of result set
+        /// 当前页码
         /// </summary>
         public int CurrentPage { get; set; }
 
         /// <summary>
-        ///     The total number of pages in the full result set
+        /// 总页数
         /// </summary>
         public int TotalPages { get; set; }
 
         /// <summary>
-        ///     The total number of records in the full result set
+        /// 总记录数
         /// </summary>
         public long TotalItems { get; set; }
 
         /// <summary>
-        ///     The number of items per page
+        /// 每页记录数
         /// </summary>
         public int ItemsPerPage { get; set; }
 
         /// <summary>
-        ///     The actual records on this page
+        /// 当前页记录列表
         /// </summary>
         public List<T> Items { get; set; }
     }

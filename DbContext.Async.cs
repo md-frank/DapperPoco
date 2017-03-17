@@ -15,14 +15,14 @@ namespace Mondol.DapperPoco
             return Task.Run(() => Insert(entity, tableName), cancellationToken);
         }
 
-        public Task<int> UpdateAsync<T>(T entity, string tableName = null, string[] columns = null, string primaryKeyName = null, CancellationToken cancellationToken = default(CancellationToken)) where T : class
+        public Task<int> UpdateAsync<T>(T entity, string[] columns = null, string tableName = null, string primaryKeyName = null, CancellationToken cancellationToken = default(CancellationToken)) where T : class
         {
-            return Task.Run(() => Update(entity, tableName, columns, primaryKeyName), cancellationToken);
+            return Task.Run(() => Update(entity, columns, tableName, primaryKeyName), cancellationToken);
         }
 
-        public Task<int> UpdateAsync<T>(T entity, CancellationToken cancellationToken, params Expression<Func<T, object>>[] columns) where T : class
+        public Task<int> UpdateAsync<T>(T entity, string tableName = null, string primaryKeyName = null, CancellationToken cancellationToken = default(CancellationToken), params Expression<Func<T, object>>[] columns) where T : class
         {
-            return Task.Run(() => Update(entity, columns), cancellationToken);
+            return Task.Run(() => Update(entity, tableName, primaryKeyName, columns), cancellationToken);
         }
 
         public Task<int> DeleteAsync<T>(T entity, string tableName = null, string primaryKeyName = null, CancellationToken cancellationToken = default(CancellationToken)) where T : class
@@ -30,14 +30,9 @@ namespace Mondol.DapperPoco
             return Task.Run(() => Delete(entity, tableName, primaryKeyName), cancellationToken);
         }
 
-        public Task<int> SaveAsync<T>(T entity, string tableName = null, string[] columns = null, string primaryKeyName = null, CancellationToken cancellationToken = default(CancellationToken)) where T : class
+        public Task<int> SaveAsync<T>(T entity, string[] columns = null, string tableName = null, string primaryKeyName = null, CancellationToken cancellationToken = default(CancellationToken)) where T : class
         {
-            return Task.Run(() => Save(entity, tableName, columns, primaryKeyName), cancellationToken);
-        }
-
-        public Task<T> FetchByPrimaryKeyAsync<T>(T entity, string tableName = null, string primaryKeyName = null, CancellationToken cancellationToken = default(CancellationToken)) where T : class
-        {
-            return Task.Run(() => FetchByPrimaryKey(entity, tableName, primaryKeyName), cancellationToken);
+            return Task.Run(() => Save(entity, columns, tableName, primaryKeyName), cancellationToken);
         }
 
         public Task<List<T>> FetchAllAsync<T>(string tableName = null, CancellationToken cancellationToken = default(CancellationToken)) where T : class

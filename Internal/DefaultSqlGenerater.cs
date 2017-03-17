@@ -108,21 +108,20 @@ namespace Mondol.DapperPoco.Internal
             });
         }
 
-        public string GetByPrimaryKey(Type type, string tableName, string primaryKeyName)
+        public string GetByColumn(Type type, string columnName, string tableName)
         {
-            var key = $"{nameof(GetByPrimaryKey)}_{type.FullName}_{tableName}_{primaryKeyName}";
+            var key = $"{nameof(GetByColumn)}_{type.FullName}_{tableName}_{columnName}";
             return _sqlsCache.GetOrAdd(key, () =>
             {
                 var tableInfo = _mapper.GetEntityTableInfo(type);
-                var pkInfo = GetPrimaryKey(tableInfo, primaryKeyName);
                 var paramPrefix = _sqlAdapter.GetParameterPrefix();
 
                 if (string.IsNullOrEmpty(tableName))
                     tableName = tableInfo.TableName;
                 tableName = _sqlAdapter.EscapeTableName(tableName);
-                var pkName = _sqlAdapter.EscapeSqlIdentifier(pkInfo.ColumnName);
+                var colName = _sqlAdapter.EscapeSqlIdentifier(columnName);
                 var qCols = string.Join(", ", tableInfo.Columns.Select(p => _sqlAdapter.EscapeSqlIdentifier(p.ColumnName)));
-                return $"select {qCols} from {tableName} where {pkName} = {paramPrefix}{pkInfo.Property.Name}";
+                return $"select {qCols} from {tableName} where {colName} = {paramPrefix}p0";
             });
         }
 
@@ -132,10 +131,10 @@ namespace Mondol.DapperPoco.Internal
 
             if (string.IsNullOrEmpty(primaryKey))
             {
-                //优先选取自动增长的主键
-                pkInfo = tableInfo.Columns.FirstOrDefault(p => p.IsPrimaryKey && p.IsAutoIncrement);
-                if (pkInfo == null)
-                    pkInfo = tableInfo.Columns.FirstOrDefault(p => p.IsPrimaryKey);
+                var pks = tableInfo.Columns.Where(p => p.IsPrimaryKey);
+                if (pks.Count() > 1)
+                    throw new InvalidProgramException($"实体 {tableInfo.TableName} 包含多个主键");
+                pkInfo = pks.FirstOrDefault();
             }
             else
             {
