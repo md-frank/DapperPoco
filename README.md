@@ -1,9 +1,9 @@
 # DapperPoco
 
 基于[Dapper](https://github.com/StackExchange/Dapper)的、轻量级的、高性能的、简单的、灵活的ORM框架
-1. 继承了Dapper的高性能
-2. 像EF一样使用简单，大多数情况下不用原生SQL
-3. 同时支持Poco与原生SQL
+1. 高性能（与Dapper一致），以热启动后计算（第一次启动有缓存过程）
+2. 像EF一样使用简单，也可像Dapper一样灵活使用原生SQL
+3. 支持使用Fluent API定义实体映射
 
 ## 准备工作
 
