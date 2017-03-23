@@ -39,23 +39,11 @@ namespace Mondol.DapperPoco
 
         public int Insert<T>(T entity, string tableName = null) where T : class
         {
-            var isList = false;
-            var type = typeof(T);
-
-            if (type.IsArray)
-            {
-                isList = true;
-                type = type.GetElementType();
-            }
-            else if (type.IsGenericType())
-            {
-                //对应IEnumerable<T>
-                isList = true;
-                type = type.GetGenericArguments()[0];
-            }
+            bool isEnumerable;
+            var type = GetEnumerableElementType(typeof(T), out isEnumerable);
 
             var sql = DbContextServices.SqlGenerater.Insert(type, tableName);
-            if (isList)
+            if (isEnumerable)
             {
                 return DbConnection.Execute(sql, entity, _transaction);
             }
@@ -72,9 +60,8 @@ namespace Mondol.DapperPoco
 
         public int Update<T>(T entity, string[] columns = null, string tableName = null, string primaryKeyName = null) where T : class
         {
-            var type = typeof(T);
-            if (type.IsArray)
-                type = type.GetElementType();
+            bool isEnumerable;
+            var type = GetEnumerableElementType(typeof(T), out isEnumerable);
 
             var sql = DbContextServices.SqlGenerater.Update(type, tableName, columns, primaryKeyName);
             return DbConnection.Execute(sql, entity, _transaction, CommandTimeout);
@@ -92,9 +79,8 @@ namespace Mondol.DapperPoco
 
         public int Delete<T>(T entity, string tableName = null, string primaryKeyName = null) where T : class
         {
-            var type = typeof(T);
-            if (type.IsArray)
-                type = type.GetElementType();
+            bool isEnumerable;
+            var type = GetEnumerableElementType(typeof(T), out isEnumerable);
 
             var sql = DbContextServices.SqlGenerater.Delete(type, tableName, primaryKeyName);
             return DbConnection.Execute(sql, entity, _transaction, CommandTimeout);
@@ -315,14 +301,21 @@ namespace Mondol.DapperPoco
             }
         }
 
-        private EntityColumnInfo GetPrimaryKeyColumnInfo(Type entityType)
+        private Type GetEnumerableElementType(Type type, out bool isEnumerable)
         {
-            var eTabInfo = DbContextServices.EntityMapper.GetEntityTableInfo(entityType);
-            var eci = eTabInfo.Columns.FirstOrDefault(p => p.IsPrimaryKey);
-            if (eci == null)
-                throw new InvalidOperationException($"实体 {entityType.FullName} 不包含主键");
-
-            return eci;
+            isEnumerable = false;
+            if (type.IsArray)
+            {
+                isEnumerable = true;
+                return type.GetElementType();
+            }
+            else if (type.IsGenericType())
+            {
+                //对应IEnumerable<T>
+                isEnumerable = true;
+                return type.GetGenericArguments()[0];
+            }
+            return type;
         }
 
         #endregion
