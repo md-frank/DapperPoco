@@ -1,3 +1,9 @@
+// Copyright (c) Mondol. All rights reserved.
+// 
+// Author:  frank
+// Email:   frank@mondol.info
+// Created: 2017-01-22
+// 
 using System.Data;
 using System.Data.Common;
 
@@ -39,11 +45,11 @@ namespace Mondol.DapperPoco.Adapters
         ///     Builds an SQL query suitable for performing page based queries to the database
         /// </summary>
         /// <param name="partedSql">partedSql</param>
-        /// <param name="args">Arguments to any embedded parameters in the SQL query</param>        
+        /// <param name="sqlArgs">Arguments to any embedded parameters in the SQL query</param>
         /// <param name="skip">The number of rows that should be skipped by the query</param>
         /// <param name="take">The number of rows that should be retruend by the query</param>
-        string PagingBuild(ref PartedSql partedSql, object[] args, long skip, long take);
+        string PagingBuild(ref PartedSql partedSql, object sqlArgs, long skip, long take);
 
-        long Insert(IDbConnection dbConn, string sql, object param, IDbTransaction transaction = null);
+        long Insert(IDbConnection dbConn, string sql, object sqlArgs, IDbTransaction transaction = null);
     }
 }

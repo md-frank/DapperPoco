@@ -1,68 +1,47 @@
-﻿using System.Text.RegularExpressions;
+﻿// Copyright (c) Mondol. All rights reserved.
+// 
+// Author:  frank
+// Email:   frank@mondol.info
+// Created: 2017-01-22
+// 
+using System;
+using System.Text.RegularExpressions;
 
 namespace Mondol.DapperPoco.Utils
 {
     public class PagingUtil
     {
-        private static readonly Regex RegexColumns = new Regex(@"\A\s*SELECT\s+((?:\((?>\((?<depth>)|\)(?<-depth>)|.?)*(?(depth)(?!))\)|.)*?)(?<!,\s+)\bFROM\b",
-            RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.Singleline | RegexOptions.Compiled);
-
-        private static readonly Regex RegexDistinct = new Regex(@"\ADISTINCT\s",
-            RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.Singleline | RegexOptions.Compiled);
-
-        private static readonly Regex RegexOrderBy = new Regex(
-                @"\bORDER\s+BY\s+(?!.*?(?:\)|\s+)AS\s)(?:\((?>\((?<depth>)|\)(?<-depth>)|.?)*(?(depth)(?!))\)|[\[\]`""\w\(\)\.])+(?:\s+(?:ASC|DESC))?(?:\s*,\s*(?:\((?>\((?<depth>)|\)(?<-depth>)|.?)*(?(depth)(?!))\)|[\[\]`""\w\(\)\.])+(?:\s+(?:ASC|DESC))?)*",
-                RegexOptions.RightToLeft | RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.Singleline | RegexOptions.Compiled);
+        private static readonly Regex _rexSelect = new Regex(@"^\s*SELECT\s+(.+?)\sFROM\s", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
+        private static readonly Regex _rexOrderBy = new Regex(@"\s+ORDER\s+BY\s+([^\s]+(?:\s+ASC|\s+DESC)?)\s*$", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
 
         /// <summary>
-        ///     Splits the given <paramref name="sql" /> into <paramref name="parts" />;
+        /// 分割SQL
         /// </summary>
-        /// <param name="sql">The SQL to split.</param>
-        /// <param name="parts">The SQL parts.</param>
-        /// <returns><c>True</c> if the SQL could be split; else, <c>False</c>.</returns>
-        public static bool SplitSql(string sql, out PartedSql parts)
+        public static PartedSql SplitSql(string sql)
         {
-            parts = new PartedSql
-            {
-                SelectRemovedSql = null,
-                CountSql = null,
-                OrderBySql = null
-            };
+            var parts = new PartedSql { Raw = sql };
 
-            // Extract the columns from "SELECT <whatever> FROM"
-            var m = RegexColumns.Match(sql);
+            // Extract the sql from "SELECT <whatever> FROM"
+            var m = _rexSelect.Match(sql);
             if (!m.Success)
-                return false;
+                throw new ArgumentException("Unable to parse SQL statement for select");
+            parts.Select = m.Groups[1].Value;
 
-            // Save column list and replace with COUNT(*)
-            var g = m.Groups[1];
-            parts.SelectRemovedSql = sql.Substring(g.Index);
-
-            if (RegexDistinct.IsMatch(parts.SelectRemovedSql))
-                parts.CountSql = sql.Substring(0, g.Index) + "COUNT(" + m.Groups[1].ToString().Trim() + ") " + sql.Substring(g.Index + g.Length);
-            else
-                parts.CountSql = sql.Substring(0, g.Index) + "COUNT(*) " + sql.Substring(g.Index + g.Length);
-
-            // Look for the last "ORDER BY <whatever>" clause not part of a ROW_NUMBER expression
-            m = RegexOrderBy.Match(parts.CountSql);
+            sql = sql.Substring(m.Length);
+            m = _rexOrderBy.Match(sql);
             if (m.Success)
             {
-                g = m.Groups[0];
-                parts.OrderBySql = g.ToString();
-                parts.CountSql = parts.CountSql.Substring(0, g.Index) + parts.CountSql.Substring(g.Index + g.Length);
+                sql = sql.Substring(0, m.Index);
+                parts.OrderBy = m.Groups[1].Value;
             }
+            parts.Body = sql;
 
-            return true;
+            return parts;
         }
 
-        public static string ReplaceOrderBy(string str1, string str2)
+        public static string GetCountSql(PartedSql sql)
         {
-            return RegexOrderBy.Replace(str1, str2, 1);
-        }
-
-        public static bool ContainsDistinct(string str)
-        {
-            return RegexDistinct.IsMatch(str);
+            return $"SELECT COUNT(*) FROM {sql.Body}";
         }
     }
 }

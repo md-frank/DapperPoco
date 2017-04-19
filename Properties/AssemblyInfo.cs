@@ -1,4 +1,10 @@
-﻿using System.Reflection;
+﻿// Copyright (c) Mondol. All rights reserved.
+// 
+// Author:  frank
+// Email:   frank@mondol.info
+// Created: 2017-01-22
+// 
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 

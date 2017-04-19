@@ -1,28 +1,30 @@
-﻿namespace Mondol.DapperPoco
+﻿// Copyright (c) Mondol. All rights reserved.
+// 
+// Author:  frank
+// Email:   frank@mondol.info
+// Created: 2017-02-17
+// 
+namespace Mondol.DapperPoco
 {
     /// <summary>
-    ///     Presents the SQL parts.
+    /// 分解后的SQL信息
     /// </summary>
     public struct PartedSql
     {
+        public string Raw;
         /// <summary>
-        /// Raw Sql
+        /// select部分（包含top x或distinct等修饰语句），例如：distinct Id, name
         /// </summary>
-        public string RawSql;
+        public string Select;
 
         /// <summary>
-        ///     The SQL count.
+        /// body部分（包含from与orderBy之前的内容），例如：tabName where Id = 123
         /// </summary>
-        public string CountSql;
+        public string Body;
 
         /// <summary>
-        ///     The SQL Select
+        /// order by部分，例如：Id Asc
         /// </summary>
-        public string SelectRemovedSql;
-
-        /// <summary>
-        ///     The SQL Order By
-        /// </summary>
-        public string OrderBySql;
+        public string OrderBy;
     }
 }

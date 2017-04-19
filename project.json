@@ -14,8 +14,7 @@
     "System.Data.Common": "4.3.0",
     "Microsoft.Extensions.Logging.Abstractions": "1.1.0",
     "System.Collections.NonGeneric": "4.3.0",
-    "System.Xml.XmlDocument": "4.3.0",
-    "Microsoft.EntityFrameworkCore": "1.1.0"
+    "System.Xml.XmlDocument": "4.3.0"
   },
 
   "frameworks": {

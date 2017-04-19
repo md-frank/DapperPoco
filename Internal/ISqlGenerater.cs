@@ -1,4 +1,11 @@
-﻿using System;
+﻿// Copyright (c) Mondol. All rights reserved.
+// 
+// Author:  frank
+// Email:   frank@mondol.info
+// Created: 2017-01-22
+// 
+using System;
+using System.Collections.Generic;
 
 namespace Mondol.DapperPoco.Internal
 {
@@ -8,9 +15,12 @@ namespace Mondol.DapperPoco.Internal
     public interface ISqlGenerater
     {
         string Insert(Type type, string tableName = null);
-        string Delete(Type type, string tableName = null, string primaryKeyName = null);
-        string Update(Type type, string tableName = null, string[] columns = null, string primaryKeyName = null);
+        /// <summary>
+        /// 根据列删除，列传null表示主键
+        /// </summary>
+        string DeleteByColumns(Type type, string tableName, ICollection<string> columnNames);
+        string Update(Type type, string tableName = null, ICollection<string> columns = null, string primaryKeyName = null);
         string GetAll(Type type, string tableName = null);
-        string GetByColumn(Type type, string columnName, string tableName = null);
+        string GetByColumns(Type type, ICollection<string> columnNames, string tableName);
     }
 }

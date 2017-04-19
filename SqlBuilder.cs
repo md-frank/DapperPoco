@@ -1,4 +1,10 @@
-﻿using System.Collections.Generic;
+﻿// Copyright (c) Mondol. All rights reserved.
+// 
+// Author:  frank
+// Email:   frank@mondol.info
+// Created: 2017-01-22
+// 
+using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -15,9 +21,15 @@ namespace Mondol.DapperPoco
             return this;
         }
 
+        public SqlBuilder Like(string likeBefore, string likeStr)
+        {
+            Append(likeBefore + " like @p0", $"'{EscapeString(likeStr)}'");
+            return this;
+        }
+
         public Sql Build()
         {
-            var sbSql = new StringBuilder();
+            var sbSql = StringBuilderCache.Allocate();
             var lstParam = new List<KeyValuePair<string, object>>();
             var index = 0;
             foreach (var sqlClause in _sqlClauses)
@@ -33,7 +45,12 @@ namespace Mondol.DapperPoco
                 }
             }
 
-            return new Sql(sbSql.ToString(), parameters: lstParam);
+            return new Sql(StringBuilderCache.ReturnAndFree(sbSql), parameters: lstParam);
+        }
+
+        public static string EscapeString(string str)
+        {
+            return str?.Replace("'", "''");
         }
     }
 }

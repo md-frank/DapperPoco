@@ -1,3 +1,9 @@
+// Copyright (c) Mondol. All rights reserved.
+// 
+// Author:  frank
+// Email:   frank@mondol.info
+// Created: 2017-01-22
+// 
 using System;
 using System.Data;
 using System.Data.Common;
@@ -21,9 +27,9 @@ namespace Mondol.DapperPoco.Adapters
             return string.Format("[{0}]", sqlIdentifier);
         }
 
-        public virtual string PagingBuild(ref PartedSql partedSql, object[] args, long skip, long take)
+        public virtual string PagingBuild(ref PartedSql partedSql, object args, long skip, long take)
         {
-            var pageSql = $"{partedSql.RawSql} LIMIT @{take} OFFSET @{skip}";
+            var pageSql = $"{partedSql.Raw} LIMIT @{take} OFFSET @{skip}";
             return pageSql;
         }
 

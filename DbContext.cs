@@ -1,4 +1,10 @@
-﻿using System;
+﻿// Copyright (c) Mondol. All rights reserved.
+// 
+// Author:  frank
+// Email:   frank@mondol.info
+// Created: 2017-01-22
+// 
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
@@ -58,7 +64,7 @@ namespace Mondol.DapperPoco
             }
         }
 
-        public int Update<T>(T entity, string[] columns = null, string tableName = null, string primaryKeyName = null) where T : class
+        public int Update<T>(T entity, ICollection<string> columns = null, string tableName = null, string primaryKeyName = null) where T : class
         {
             bool isEnumerable;
             var type = GetEnumerableElementType(typeof(T), out isEnumerable);
@@ -67,14 +73,30 @@ namespace Mondol.DapperPoco
             return DbConnection.Execute(sql, entity, _transaction, CommandTimeout);
         }
 
-        public int Update<T>(T entity, string tableName = null, string primaryKeyName = null, params Expression<Func<T, object>>[] columns) where T : class
+        public int Update<T>(T entity, Expression<Func<T, object>> columns, string tableName = null, string primaryKeyName = null) where T : class
         {
             var eTabInfo = DbContextServices.EntityMapper.GetEntityTableInfo(typeof(T));
 
-            //TODO: 此处对EF Core有依赖，日后去掉依赖
-            var cPis = columns.Select(Microsoft.EntityFrameworkCore.Internal.ExpressionExtensions.GetPropertyAccess);
-            var colNames = cPis.Select(p => eTabInfo.Columns.First(p1 => p1.Property.Name == p.Name).ColumnName).ToArray();
+            ICollection<string> colNames = null;
+            if (columns != null)
+            {
+                var cPis = ExpressionUtil.GetPropertyAccessList(columns);
+                colNames = cPis.Select(p => eTabInfo.Columns.First(p1 => p1.Property.Name == p.Name).ColumnName).ToList();
+            }
             return Update(entity, colNames, tableName, primaryKeyName);
+        }
+
+        public int Update<T>(IEnumerable<T> entities, Expression<Func<T, object>> columns, string tableName = null, string primaryKeyName = null) where T : class
+        {
+            var eTabInfo = DbContextServices.EntityMapper.GetEntityTableInfo(typeof(T));
+
+            ICollection<string> colNames = null;
+            if (columns != null)
+            {
+                var cPis = ExpressionUtil.GetPropertyAccessList(columns);
+                colNames = cPis.Select(p => eTabInfo.Columns.First(p1 => p1.Property.Name == p.Name).ColumnName).ToList();
+            }
+            return Update(entities, colNames, tableName, primaryKeyName);
         }
 
         public int Delete<T>(T entity, string tableName = null, string primaryKeyName = null) where T : class
@@ -82,11 +104,31 @@ namespace Mondol.DapperPoco
             bool isEnumerable;
             var type = GetEnumerableElementType(typeof(T), out isEnumerable);
 
-            var sql = DbContextServices.SqlGenerater.Delete(type, tableName, primaryKeyName);
+            var sql = DbContextServices.SqlGenerater.DeleteByColumns(type, tableName, new[] { primaryKeyName });
+            return DbConnection.Execute(sql, entity, _transaction, CommandTimeout);
+        }
+
+        public int DeleteByColumns<T>(T entity, Expression<Func<T, object>> columns, string tableName = null) where T : class
+        {
+            bool isEnumerable;
+            var type = GetEnumerableElementType(typeof(T), out isEnumerable);
+            var eTabInfo = DbContextServices.EntityMapper.GetEntityTableInfo(typeof(T));
+            var cPis = ExpressionUtil.GetPropertyAccessList(columns);
+            var colNames = cPis.Select(p => eTabInfo.Columns.First(p1 => p1.Property.Name == p.Name).ColumnName).ToList();
+
+            var sql = DbContextServices.SqlGenerater.DeleteByColumns(type, tableName, colNames);
             return DbConnection.Execute(sql, entity, _transaction, CommandTimeout);
         }
 
         public int Save<T>(T entity, string[] columns = null, string tableName = null, string primaryKeyName = null) where T : class
+        {
+            var updCount = Update(entity, columns, tableName, primaryKeyName);
+            if (updCount < 1)
+                return Insert(entity, tableName);
+            return updCount;
+        }
+
+        public int Save<T>(T entity, Expression<Func<T, object>> columns, string tableName = null, string primaryKeyName = null) where T : class
         {
             var updCount = Update(entity, columns, tableName, primaryKeyName);
             if (updCount < 1)
@@ -100,77 +142,109 @@ namespace Mondol.DapperPoco
             return Fetch<T>(sql);
         }
 
+        public List<T> FetchByProperty<T>(T entity, Expression<Func<T, object>> properties, string tableName = null) where T : class
+        {
+            var eTabInfo = DbContextServices.EntityMapper.GetEntityTableInfo(typeof(T));
+
+            var cPis = ExpressionUtil.GetPropertyAccessList(properties);
+            var colNames = cPis.Select(p => eTabInfo.Columns.First(p1 => p1.Property.Name == p.Name).ColumnName).ToList();
+
+            var sql = DbContextServices.SqlGenerater.GetByColumns(typeof(T), colNames, tableName);
+            return Fetch<T>(sql, entity);
+        }
+
+        public IEnumerable<T> QueryByProperty<T>(T entity, Expression<Func<T, object>> properties, string tableName = null) where T : class
+        {
+            var eTabInfo = DbContextServices.EntityMapper.GetEntityTableInfo(typeof(T));
+
+            var cPis = ExpressionUtil.GetPropertyAccessList(properties);
+            var colNames = cPis.Select(p => eTabInfo.Columns.First(p1 => p1.Property.Name == p.Name).ColumnName).ToList();
+
+            var sql = DbContextServices.SqlGenerater.GetByColumns(typeof(T), colNames, tableName);
+            return Query<T>(sql, entity);
+        }
+
         #endregion
 
         #region Query/Execute
 
-        public IEnumerable<T> Query<T>(string sql, params object[] args)
+        public IEnumerable<T> Query<T>(string sql, object sqlArgs = null)
         {
-            return DbConnection.Query<T>(sql, new Sql(sql, args), _transaction, false, CommandTimeout);
+            return DbConnection.Query<T>(sql, Sql.ConvertToDapperParam(sqlArgs), _transaction, false, CommandTimeout);
         }
 
-        public IEnumerable<TReturn> Query<TFirst, TSecond, TReturn>(Func<TFirst, TSecond, TReturn> map, string sql, params object[] args)
+        public IEnumerable<TReturn> Query<TFirst, TSecond, TReturn>(Func<TFirst, TSecond, TReturn> map, string sql, object sqlArgs = null, string splitOn = "Id")
         {
-            return DbConnection.Query(sql, map, Sql.ConvertToDapperParam(args), _transaction, false, "Id", CommandTimeout);
+            return DbConnection.Query(sql, map, Sql.ConvertToDapperParam(sqlArgs), _transaction, false, splitOn, CommandTimeout);
         }
 
-        public IEnumerable<TReturn> Query<TFirst, TSecond, TReturn>(Func<TFirst, TSecond, TReturn> map, string splitOn, string sql, params object[] args)
+        public IEnumerable<TReturn> Query<TFirst, TSecond, TThird, TReturn>(Func<TFirst, TSecond, TThird, TReturn> map, string sql, object sqlArgs = null, string splitOn = "Id")
         {
-            return DbConnection.Query(sql, map, Sql.ConvertToDapperParam(args), _transaction, false, splitOn, CommandTimeout);
+            return DbConnection.Query(sql, map, Sql.ConvertToDapperParam(sqlArgs), _transaction, false, splitOn, CommandTimeout);
         }
 
-        public T FirstOrDefault<T>(string sql, params object[] args)
+        public T FirstOrDefault<T>(string sql, object sqlArgs = null)
         {
-            return DbConnection.QueryFirstOrDefault<T>(sql, Sql.ConvertToDapperParam(args), _transaction, CommandTimeout);
+            return DbConnection.QueryFirstOrDefault<T>(sql, Sql.ConvertToDapperParam(sqlArgs), _transaction, CommandTimeout);
         }
 
-        public List<T> Fetch<T>(string sql, params object[] args)
+        public List<T> Fetch<T>(string sql, object sqlArgs = null)
         {
-            return (List<T>)DbConnection.Query<T>(sql, Sql.ConvertToDapperParam(args), _transaction, true, CommandTimeout);
+            return (List<T>)DbConnection.Query<T>(sql, Sql.ConvertToDapperParam(sqlArgs), _transaction, true, CommandTimeout);
         }
 
-        public List<TReturn> Fetch<TFirst, TSecond, TReturn>(Func<TFirst, TSecond, TReturn> map, string sql, params object[] args)
+        public List<TReturn> Fetch<TFirst, TSecond, TReturn>(Func<TFirst, TSecond, TReturn> map, string sql, object sqlArgs = null, string splitOn = "Id")
         {
-            return (List<TReturn>)DbConnection.Query(sql, map, Sql.ConvertToDapperParam(args), _transaction, true, "Id", CommandTimeout);
+            return (List<TReturn>)DbConnection.Query(sql, map, Sql.ConvertToDapperParam(sqlArgs), _transaction, true, splitOn, CommandTimeout);
         }
 
-        public int Execute(string sql, params object[] args)
+        public List<TReturn> Fetch<TFirst, TSecond, TThird, TReturn>(Func<TFirst, TSecond, TThird, TReturn> map, string sql, object sqlArgs = null, string splitOn = "Id")
         {
-            return DbConnection.Execute(sql, Sql.ConvertToDapperParam(args), _transaction, CommandTimeout);
+            return (List<TReturn>)DbConnection.Query(sql, map, Sql.ConvertToDapperParam(sqlArgs), _transaction, true, splitOn, CommandTimeout);
         }
 
-        public T ExecuteScalar<T>(string sql, params object[] args)
+        public int Execute(string sql, object sqlArgs)
         {
-            return DbConnection.ExecuteScalar<T>(sql, Sql.ConvertToDapperParam(args), _transaction, CommandTimeout);
+            return DbConnection.Execute(sql, Sql.ConvertToDapperParam(sqlArgs), _transaction, CommandTimeout);
         }
 
-        public Paged<T> Paged<T>(int page, int itemsPerPage, string sql, params object[] args) where T : new()
+        public T ExecuteScalar<T>(string sql, object sqlArgs)
         {
-            PartedSql partedSql;
-            if (!PagingUtil.SplitSql(sql, out partedSql))
-                throw new Exception("Unable to parse SQL statement for paged query");
-
-            var pageSql = DbContextServices.SqlAdapter.PagingBuild(ref partedSql, args, (page - 1) * itemsPerPage, itemsPerPage);
-            return Paged<T>(page, itemsPerPage, partedSql.CountSql, args, pageSql, args);
+            return DbConnection.ExecuteScalar<T>(sql, Sql.ConvertToDapperParam(sqlArgs), _transaction, CommandTimeout);
         }
 
-        /// <summary>
-        ///     Retrieves a page of records	and the total number of available records
-        /// </summary>
-        /// <typeparam name="T">The Type representing a row in the result set</typeparam>
-        /// <param name="page">The 1 based page number to retrieve</param>
-        /// <param name="itemsPerPage">The number of records per page</param>
-        /// <param name="sqlCount">The SQL to retrieve the total number of records</param>
-        /// <param name="countArgs">Arguments to any embedded parameters in the sqlCount statement</param>
-        /// <param name="sqlPage">The SQL To retrieve a single page of results</param>
-        /// <param name="pageArgs">Arguments to any embedded parameters in the sqlPage statement</param>
-        /// <returns>A Page of results</returns>
-        /// <remarks>
-        ///     This method allows separate SQL statements to be explicitly provided for the two parts of the page query.
-        ///     The page and itemsPerPage parameters are not used directly and are used simply to populate the returned Page
-        ///     object.
-        /// </remarks>
-        public Paged<T> Paged<T>(int page, int itemsPerPage, string sqlCount, object[] countArgs, string sqlPage, object[] pageArgs) where T : new()
+        public Paged<T> Paged<T>(int page, int itemsPerPage, string pageSql, object pageSqlArgs = null, string countSql = null, object countSqlArgs = null) where T : new()
+        {
+            var partedSql = PagingUtil.SplitSql(pageSql);
+            pageSql = DbContextServices.SqlAdapter.PagingBuild(ref partedSql, pageSqlArgs, (page - 1) * itemsPerPage, itemsPerPage);
+            if (string.IsNullOrEmpty(countSql))
+            {
+                countSql = PagingUtil.GetCountSql(partedSql);
+                countSqlArgs = pageSqlArgs;
+            }
+
+            return PagedInternal(page, itemsPerPage, countSql, countSqlArgs, () =>
+                Fetch<T>(pageSql, pageSqlArgs)
+            );
+        }
+
+        public Paged<TReturn> Paged<TFirst, TSecond, TReturn>(Func<TFirst, TSecond, TReturn> map, int page, int itemsPerPage, string pageSql, object pageSqlArgs = null,
+                                                              string countSql = null, object countSqlArgs = null, string splitOn = "Id") where TReturn : new()
+        {
+            var partedSql = PagingUtil.SplitSql(pageSql);
+            pageSql = DbContextServices.SqlAdapter.PagingBuild(ref partedSql, pageSqlArgs, (page - 1) * itemsPerPage, itemsPerPage);
+            if (string.IsNullOrEmpty(countSql))
+            {
+                countSql = PagingUtil.GetCountSql(partedSql);
+                countSqlArgs = pageSqlArgs;
+            }
+
+            return PagedInternal(page, itemsPerPage, countSql, countSqlArgs, () =>
+                Fetch(map, pageSql, pageSqlArgs, splitOn)
+            );
+        }
+
+        private Paged<T> PagedInternal<T>(int page, int itemsPerPage, string sqlCount, object countArgs, Func<List<T>> itemsCb) where T : new()
         {
             if (page < 1)
                 throw new ArgumentOutOfRangeException(nameof(page));
@@ -182,9 +256,9 @@ namespace Mondol.DapperPoco
             {
                 CurrentPage = page,
                 ItemsPerPage = itemsPerPage,
-                TotalItems = ExecuteScalar<long>(sqlCount, countArgs),
+                TotalItems = totalCount,
                 TotalPages = (int)Math.Ceiling((double)totalCount / itemsPerPage),
-                Items = Fetch<T>(sqlPage, pageArgs)
+                Items = itemsCb()
             };
         }
 

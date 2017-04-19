@@ -1,4 +1,10 @@
-﻿using System;
+﻿// Copyright (c) Mondol. All rights reserved.
+// 
+// Author:  frank
+// Email:   frank@mondol.info
+// Created: 2017-01-22
+// 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Mondol.DapperPoco.Adapters;
@@ -36,9 +42,9 @@ namespace Mondol.DapperPoco.Internal
             });
         }
 
-        public string Update(Type type, string tableName, string[] columns, string primaryKeyName)
+        public string Update(Type type, string tableName = null, ICollection<string> columns = null, string primaryKeyName = null)
         {
-            var keyCols = columns?.Length > 0 ? string.Join(",", columns) : "All";
+            var keyCols = columns?.Count > 0 ? string.Join(",", columns) : "All";
             var key = $"{nameof(Update)}_{type.FullName}_{tableName}_{keyCols}_{primaryKeyName}";
             return _sqlsCache.GetOrAdd(key, () =>
             {
@@ -47,7 +53,7 @@ namespace Mondol.DapperPoco.Internal
                 var paramPrefix = _sqlAdapter.GetParameterPrefix();
 
                 List<EntityColumnInfo> updCols;
-                if (columns?.Length > 0)
+                if (columns?.Count > 0)
                 {
                     updCols = columns.Select(p =>
                     {
@@ -76,20 +82,24 @@ namespace Mondol.DapperPoco.Internal
             });
         }
 
-        public string Delete(Type type, string tableName, string primaryKeyName)
+        public string DeleteByColumns(Type type, string tableName, ICollection<string> columnNames)
         {
-            var key = $"{nameof(Delete)}_{type.FullName}_{tableName}_{primaryKeyName}";
+            var key = $"{nameof(DeleteByColumns)}_{type.FullName}_{tableName}_{string.Join(",", columnNames)}";
             return _sqlsCache.GetOrAdd(key, () =>
             {
                 var tableInfo = _mapper.GetEntityTableInfo(type);
-                var pkInfo = GetPrimaryKey(tableInfo, primaryKeyName);
+                EntityColumnInfo pkInfo = null;
                 var paramPrefix = _sqlAdapter.GetParameterPrefix();
 
                 if (string.IsNullOrEmpty(tableName))
-                    tableName = tableInfo.TableName;
-                tableName = _sqlAdapter.EscapeTableName(tableName);
-                var pkName = _sqlAdapter.EscapeSqlIdentifier(pkInfo.ColumnName);
-                return $"delete from {tableName} where {pkName} = {paramPrefix}{pkInfo.Property.Name}";
+                    tableName = _sqlAdapter.EscapeTableName(tableInfo.TableName);                
+                var where = string.Join(" and ", columnNames.Select(p =>
+                {
+                    var colName = p ?? (pkInfo ?? (pkInfo = GetPrimaryKey(tableInfo))).ColumnName;
+                    return $"{_sqlAdapter.EscapeSqlIdentifier(colName)} = {paramPrefix}{colName}";
+                }));
+
+                return $"delete from {tableName} where {where}";
             });
         }
 
@@ -108,9 +118,9 @@ namespace Mondol.DapperPoco.Internal
             });
         }
 
-        public string GetByColumn(Type type, string columnName, string tableName)
+        public string GetByColumns(Type type, ICollection<string> columnNames, string tableName)
         {
-            var key = $"{nameof(GetByColumn)}_{type.FullName}_{tableName}_{columnName}";
+            var key = $"{nameof(GetByColumns)}_{type.FullName}_{tableName}_{string.Join(",", columnNames)}";
             return _sqlsCache.GetOrAdd(key, () =>
             {
                 var tableInfo = _mapper.GetEntityTableInfo(type);
@@ -119,9 +129,10 @@ namespace Mondol.DapperPoco.Internal
                 if (string.IsNullOrEmpty(tableName))
                     tableName = tableInfo.TableName;
                 tableName = _sqlAdapter.EscapeTableName(tableName);
-                var colName = _sqlAdapter.EscapeSqlIdentifier(columnName);
                 var qCols = string.Join(", ", tableInfo.Columns.Select(p => _sqlAdapter.EscapeSqlIdentifier(p.ColumnName)));
-                return $"select {qCols} from {tableName} where {colName} = {paramPrefix}p0";
+                var where = string.Join(" and ",
+                            columnNames.Select(p => $"{_sqlAdapter.EscapeSqlIdentifier(p)} = {paramPrefix}{p}"));
+                return $"select {qCols} from {tableName} where {where}";
             });
         }
 

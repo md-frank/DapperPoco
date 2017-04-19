@@ -1,3 +1,9 @@
+// Copyright (c) Mondol. All rights reserved.
+// 
+// Author:  frank
+// Email:   frank@mondol.info
+// Created: 2017-02-03
+// 
 using System.Data;
 using System.Data.Common;
 using System.Linq;
